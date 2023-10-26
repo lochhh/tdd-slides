@@ -1,14 +1,14 @@
 ---
-title: A template presentation
-subtitle: so much fun
-author: SWC Neuroinformatics Unit
+title: Test-Driven Development (TDD)
+author: Chang Huan Lo
 execute: 
   enabled: true
+from: markdown+emoji
 format:
     revealjs:
         theme: [default, niu-dark.scss]
         logo: img/logo_niu_dark.png
-        footer: "Edit this footer | 2023-07-26"
+        footer: "NIU team meeting | 2023-10-27"
         slide-number: c
         menu:
             numbers: true
@@ -22,18 +22,18 @@ format:
         code-overflow: wrap
         highlight-style: atom-one
         mermaid: 
-          theme: neutral
+          theme: dark
           fontFamily: arial
           curve: linear
     html:
         theme: [default, niu-dark.scss]
         logo: img/logo_niu_dark.png
-        date: "2023-07-05"
+        date: "2023-10-27"
         toc: true
         code-overflow: scroll
         highlight-style: atom-one
         mermaid: 
-          theme: neutral
+          theme: dark
           fontFamily: arial
           curve: linear
           margin-left: 0
@@ -43,69 +43,458 @@ my-custom-stuff:
    my-reuseable-variable: "I can use this wherever I want in the markdown, and change it in only once place :)"
 ---
 
-## Contents
+## Example Scenario {.smaller}
 
-Some example slides - [also look at example RevealJS slides in the Quarto docs](https://quarto.org/docs/presentations/revealjs/)
+:::: {.columns}
+::: {.column}
+**Initial plan**
 
-* Non-executable and executable code-blocks
-* bullet points with highlighting 
-* two-column slides 
-* how to include a slide from a separate MD file
-* preview and link to a webpage
+* implement new functionality
+* test at the end
+:::
+::: {.column}
+**Reality**
 
-## Just a code block, nothing gets executed...
+* implementation takes much longer than expected 
+* time to test
+  * huge codebase to test
+  * pressure to ship &rarr; skimp on testing
+  * defects discovered this late are [costly](https://deepsource.com/blog/exponential-cost-of-fixing-bugs) to fix
+:::
+::::
 
-... but there is some fancy highlighting
+## Test-Driven Development (TDD)
 
-```{.python code-line-numbers="1|3|4-9"}
-from pathlib import Path
-
-home_path = Path.home()
-if home_path.exists():
-  data_path = home_path / "data"
-else:
-  pass
-  # raise some error maybe?
+* software design practice developed by Kent Beck 
+* general workflow 
+```{mermaid} 
+%%| fig-width: 6.5
+%%| fig-height: 3
+flowchart LR
+    A[Think] --> B[Red]
+    B --> C[Green]
+    C --> D[Refactor]
+    D --> C
+    D --> A
+    style B stroke:#f00
+    style C stroke:#04B46D
 ```
 
-## A code block that's actually executed at render-time
-
-```{python}
-#| echo: true
-#| code-fold: true
-
-from pathlib import Path
-
-print("Hello world")
-```
-
-## You can execute code without showing that you have by using #|echo: false
-```{python}
-#| echo: false
-
-from pathlib import Path
-
-print("Hello world")
-```
-
-{{< include slides/extra_slide.qmd >}}
-
-## An example image
-
-Include an image:
-
-![](img/bg_logo_wide.png){width=900 fig-align=center}
-
-
-## Link and a preview a webpage:
-
-::: {style="text-align: center; margin-top: 1em"}
-[interoperable Python-based tools for computational neuroanatomy](https://brainglobe.info/index.html){preview-link="true" style="text-align: center"}
+:::{style="text-align: center; margin-top: 1em;"}
+Make it [green]{style="color: #04B46D"}, then make it clean!
 :::
 
-## Use a variable several times
+::: {.notes}
+* late 1990's
+* red-green-refactor
+* think: requirements of the code, how the code should behave, what's a test that will fail unless that required behaviour is present
+* red: write a very small test code and watch it fail (<5 lines)
+* green: write the simplest thing that could possibly work and watch the test pass (inelegant or hard code is acceptable)
+* refactor: look for ways to improve the code, rerun tests and make sure they still pass
+* repeat
+:::
 
-Variables defined in the metadata is re-useable anywhere
+## Why TDD?
 
-* {{< meta my-custom-stuff.my-reuseable-variable >}}
-* {{< meta my-custom-stuff.my-reuseable-variable >}}
+* self-testing code, more fault-tolerant 
+* rapid feedback 
+* clearer software APIs
+* continuous refactoring &rarr; improved code quality
+
+::: {.notes}
+* rapid feedback: mistakes identified quickly since only a few lines of codes were added
+* thinking about the test first forces you to design your interface from the perspective of a user, not as its implementer. 
+:::
+
+## Where to Begin?
+
+1. Core interface
+2. Calculations and branches
+3. Loops and generalisation
+4. Special cases and error handling
+5. Runtime assertions 
+
+::: {.notes}
+* think about the core interface; write a test that calls this in the simplest way possible; does it make sense? hardcode the answer to pass the test
+* hardcoded answer is insufficient; start adding calculations and logic, one at a time; focus on the happy path (how code will be used when everything's working properly)
+* add support for loops or alternative ways code will be used, one at a time. logic oftentimes need refactoring into a more generic form
+* think about everything that can go wrong; exceptions? assumptions that need validated? 
+* add runtime assertions for cases that can arise only as a result of programming error (e.g., arr idx out of bounds) so they fail fast. these don't need to be tested as they're just an added safety net. (assert code in function)
+:::
+
+## ZOMBIES
+:::{style="text-align: justify; margin-top: 1em;"}
+> Test _Zero_, then _One_, then _Many_. While you test, pay attention to _Boundaries_, _Interfaces_, and _Exceptions_, all while keeping test scenarios and solutions _Simple_.
+:::
+:::{style="text-align: right; margin-top: 0em;"}
+[James Grenning](https://blog.wingman-sw.com/tdd-guided-by-zombies)
+:::
+
+## A TDD Example
+:::::: {.r-stack}
+:::: {.fragment fragment-index=1 .fade-out}
+### Task
+
+> Create a ROT-13 encoding function, a simple Caesar cipher where “abc” becomes “nop” and vice versa.
+::::
+
+:::: {.fragment fragment-index=2 .fade-in-then-out .smaller}
+### 1. Core interface (_think_, _red_)
+
+```{.python}
+## test_rot13.py
+from tdd_toy_example import rot13
+
+def test_transform():
+    assert rot13.transform("") == ""
+```
+
+![](img/pytest_output_1.png){fig-align=center width=70% style="margin-bottom: 0em"}
+::::
+
+:::: {.fragment fragment-index=3 .fade-in-then-out .smaller}
+### 1. Core interface (_green_)
+
+```{.python}
+## rot13.py
+def transform(input):
+    return ""
+```
+
+![](img/pytest_output_2.png){fig-align=center width=70% style="margin-bottom: 0em"}
+::::
+
+:::: {.fragment fragment-index=4 .fade-in-then-out .smaller}
+### 1. Core interface (_refactor_)
+
+```{.python}
+## test_rot13.py
+from tdd_toy_example import rot13
+
+def test_transform_with_empty_string():
+    assert rot13.transform("") == "", \
+        "Empty string should return empty string"
+```
+
+![](img/pytest_output_3.png){fig-align=center width=70% style="margin-bottom: 0em"}
+::::
+
+:::: {.fragment fragment-index=5 .fade-in-then-out .smaller}
+### 2. Calculations and branches (_think_ core logic)
+* loop through a string and transform each character
+* smaller step &rarr; transform one character
+* even smaller? 
+
+::::
+
+:::: {.fragment fragment-index=6 .fade-in-then-out .smaller}
+### 2. Calculations and branches (_think_ core logic, _red_)
+
+```{.python}
+## test_rot13.py
+def test_transform_lowercase_letters():
+    assert rot13.transform("a") == "n"
+```
+
+![](img/pytest_output_4.png){fig-align=center width=70% style="margin-bottom: 0em"}
+::::
+
+:::: {.fragment fragment-index=7 .fade-in-then-out .smaller}
+### 2. Calculations and branches (_green_)
+
+```{.python}
+## rot13.py
+def transform(input):
+    if input == "":
+        return ""
+    char_code = ord(input[0])
+    char_code += 13
+    return chr(char_code)
+```
+
+![](img/pytest_output_5.png){fig-align=center width=70% style="margin-bottom: 0em"}
+::::
+
+:::: {.fragment fragment-index=8 .fade-in-then-out .smaller}
+### 2. Calculations and branches (_refactor_)
+
+```{.python}
+## rot13.py
+def transform(input):
+    if input == "":
+        return ""
+    # get unicode code point of first character
+    char_code = ord(input[0])
+    char_code += 13
+    return chr(char_code)
+```
+
+![](img/pytest_output_6.png){fig-align=center width=70% style="margin-bottom: 0em"}
+::::
+
+:::: {.fragment fragment-index=9 .fade-in-then-out .smaller}
+### 2. Calculations and branches (_repeat_)
+* Lower-case letter forward: a &rarr; n :white_check_mark:
+* Lower-case letter backward: n &rarr; a
+* First character before "a" doesn't rotate: \` &rarr; \`
+* First character after "z" doesn't rotate: \{ &rarr; \{
+* Upper-case letters forward: A &rarr; N
+* Upper-case letters backward: N &rarr; A
+* More boundary cases: @ → @ and \[ &rarr; \[
+:::: 
+
+:::: {.fragment fragment-index=10 .fade-in-then-out .smaller}
+### 2. Calculations and branches (_repeat_)
+
+```{.python}
+## test_rot13.py
+import pytest
+
+from tdd_toy_example import rot13
+
+
+def test_transform_empty_string():
+    assert rot13.transform("") == "", \
+        "Empty string should return empty string"
+
+
+@pytest.mark.parametrize(
+    "test_input, expected",
+    [
+        ("a", "n"),
+        ("n", "a"),
+    ],
+    ids=["forward", "backward"],
+)
+def test_transform_lowercase_letters(test_input, expected):
+    assert rot13.transform(test_input) == expected
+
+
+@pytest.mark.parametrize(
+    "test_input, expected",
+    [
+        ("A", "N"),
+        ("N", "A"),
+    ],
+    ids=["forward", "backward"],
+)
+def test_transform_uppercase_letters(test_input, expected):
+    assert rot13.transform(test_input) == expected
+
+
+@pytest.mark.parametrize(
+    "test_input,expected",
+    [
+        ("`", "`"),
+        ("{", "{"),
+        ("@", "@"),
+        ("[", "["),
+    ],
+)
+def test_transform_symbols(test_input, expected):
+    assert rot13.transform(test_input) == expected
+```
+:::: 
+
+:::: {.fragment fragment-index=11 .fade-in-then-out}
+![](img/pytest_output_7.png){fig-align=center width=70% style="margin-bottom: 0em"}
+:::: 
+
+:::: {.fragment fragment-index=12 .fade-in-then-out .smaller}
+### 3. Loops and generalisation (_think_ handle full strings, _red_)
+
+```{.python code-line-numbers="7"}
+## test_rot13.py
+@pytest.mark.parametrize(
+    "test_input, expected",
+    [
+        ("a", "n"),
+        ("n", "a"),
+        ("abc", "nop"),
+    ],
+    ids=["forward", "backward", "forward string"],
+)
+def test_transform_lowercase_letters(test_input, expected):
+    assert rot13.transform(test_input) == expected
+```
+:::: 
+
+:::: {.fragment fragment-index=13 .fade-in-then-out .smaller}
+![](img/pytest_output_8.png){fig-align=center width=70% style="margin-bottom: 0em"}
+:::: 
+
+:::: {.fragment fragment-index=14 .fade-in-then-out .smaller}
+### 3. Loops and generalisation (_green_)
+
+```{.python}
+## rot13.py
+def transform(input):
+    if input == "":
+        return ""
+    output = ""
+    for letter in input:
+        output += transform_letter(letter)
+    return output
+
+
+def transform_letter(letter):
+    if not letter.isalpha():
+        return letter
+    # convert input to lowercase
+    input_lower = letter.lower()
+    # get unicode code point of first character
+    char_code = ord(input_lower)
+    if char_code >= ord("n"):
+        char_code -= 13
+    else:
+        char_code += 13
+    output = chr(char_code)
+    return output.upper() if letter.isupper() else output
+```
+:::: 
+
+:::: {.fragment fragment-index=15 .fade-in-then-out .smaller}
+![](img/pytest_output_9.png){fig-align=center width=70% style="margin-bottom: 0em"}
+
+..._repeat_
+:::: 
+
+:::: {.fragment fragment-index=16 .fade-in-then-out .smaller}
+### 4. Special cases, error handling, runtime assertions
+* no parameter provided
+* wrong parameter type provided
+* numbers
+* non-English letters
+* emojis
+:::: 
+
+:::: {.fragment fragment-index=17 .fade-in-then-out .smaller}
+```{.python}
+## test_rot13.py
+import pytest
+
+from tdd_toy_example import rot13
+
+
+def test_transform_empty_string():
+    assert rot13.transform("") == "", \
+        "Empty string should return empty string"
+
+
+@pytest.mark.parametrize(
+    "test_input, expected",
+    [
+        ("a", "n"),
+        ("n", "a"),
+        ("abcdefghijklmnopqrstuvwxyz", "nopqrstuvwxyzabcdefghijklm"),
+    ],
+    ids=["forward", "backward", "string"],
+)
+def test_transform_lowercase_letters(test_input, expected):
+    assert rot13.transform(test_input) == expected
+
+
+@pytest.mark.parametrize(
+    "test_input, expected",
+    [
+        ("A", "N"),
+        ("N", "A"),
+        ("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "NOPQRSTUVWXYZABCDEFGHIJKLM"),
+    ],
+    ids=["forward", "backward", "string"],
+)
+def test_transform_uppercase_letters(test_input, expected):
+    assert rot13.transform(test_input) == expected
+
+
+@pytest.mark.parametrize("test_input", ["`", "{", "@", "[", "`{@["])
+def test_transform_symbols(test_input):
+    assert rot13.transform(test_input) == test_input
+
+
+def test_transform_numbers():
+    assert rot13.transform("0123456789") == "0123456789"
+
+
+@pytest.mark.parametrize("test_input", ["äöüßéñç", "ÄÖÜẞÉÑÇ"])
+def test_transform_non_english_letters(test_input):
+    assert rot13.transform(test_input) == test_input
+
+
+@pytest.mark.parametrize("test_input", ["👍", "💁", "👌", "😍"])
+def test_transform_emoji_string(test_input):
+    assert rot13.transform(test_input) == test_input
+
+
+def test_transform_no_parameter():
+    with pytest.raises(TypeError, match="Expected string parameter"):
+        rot13.transform()
+
+
+def test_transform_wrong_parameter_type():
+    with pytest.raises(TypeError, match="Expected string parameter"):
+        rot13.transform(1)
+
+```
+:::: 
+
+:::: {.fragment fragment-index=18 .fade-in-then-out .smaller}
+![](img/pytest_output_10.png){fig-align=center width=70% style="margin-bottom: 0em"}
+:::: 
+
+:::: {.fragment fragment-index=19 .fade-in-then-out .smaller}
+```{.python}
+## rot13.py
+def transform(input=None):
+    print(type(input))
+    if input is None or not isinstance(input, str):
+        raise TypeError("Expected string parameter")
+    if input == "":
+        return ""
+    output = ""
+    for letter in input:
+        output += transform_letter(letter)
+    return output
+
+
+def transform_letter(letter):
+    if is_non_english_letter(letter):
+        return letter
+    # convert input to lowercase
+    input_lower = letter.lower()
+    # get unicode code point of first character
+    char_code = ord(input_lower)
+    if char_code >= ord("n"):
+        char_code -= 13
+    else:
+        char_code += 13
+    output = chr(char_code)
+    return output.upper() if letter.isupper() else output
+
+
+def is_non_english_letter(letter):
+    return not letter.isascii() or not letter.isalpha()
+```
+:::: 
+
+::::::
+
+## TDD Summary
+
+* Focus on code design
+* Small increments
+* Short feedback loops
+* Continuous refactoring
+
+## Further Reading
+
+1. Astels, D. (2003). [Test-driven development: A practical guide](https://dl.acm.org/doi/10.5555/864016)
+2. Beck, K. (2002). [Test driven development: By example](https://dl.acm.org/doi/book/10.5555/579193)
+3. Shore, J., & Warden, S. (2021). [The art of agile development: Test-driven development](https://www.jamesshore.com/v2/books/aoad2/test-driven_development)
+
+## References {.smaller}
+
+1. Grenning, J. (2016). [TDD guided by ZOMBIES](https://blog.wingman-sw.com/tdd-guided-by-zombies)
+2. Martin, R.C. (2014). [The clean code blog: The cycles of TDD](https://blog.cleancoder.com/uncle-bob/2014/12/17/TheCyclesOfTDD.html)
+3. Shore, J., & Warden, S. (2021). [The art of agile development: Test-driven development](https://www.jamesshore.com/v2/books/aoad2/test-driven_development)
+4. Steinfeld, G. (2020). [5 Steps of test-driven development](https://developer.ibm.com/articles/5-steps-of-test-driven-development/)
